@@ -42,6 +42,10 @@ import {
   GET_UPLOADER_DOCUMENTS_SUCCESS,
   GET_UPLOADER_DOCUMENTS_FAIL,
   GET_UPLOADER_DOCUMENTS_RESET,
+  GET_SIGNER_DOCUMENTS_REQUEST,
+  GET_SIGNER_DOCUMENTS_SUCCESS,
+  GET_SIGNER_DOCUMENTS_FAIL,
+  GET_SIGNER_DOCUMENTS_RESET,
 } from '../constants/uploadConstants';
 import { RootState } from '../store';
 
@@ -471,4 +475,64 @@ export const getUploaderDocuments = (
 
 export const resetUploaderDocuments = (): ThunkResult<void> => (dispatch) => {
   dispatch({ type: GET_UPLOADER_DOCUMENTS_RESET });
+};
+
+// Get Documents by Signer ID Action
+export const getSignerDocuments = (
+  signerId: string,
+  page: number = 1,
+  limit: number = 10,
+  status?: string
+): ThunkResult<Promise<void>> =>
+  async (dispatch, getState) => {
+    try {
+      dispatch({ type: GET_SIGNER_DOCUMENTS_REQUEST });
+
+      const state = getState();
+      const token = state.userLogin.userInfo?.token;
+
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+
+      if (status) {
+        params.append('status', status);
+      }
+
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      };
+
+      const { data } = await axiosInstance.get(`/api/documents/signer/${signerId}?${params.toString()}`, config);
+
+      if (data.success && data.data) {
+        dispatch({
+          type: GET_SIGNER_DOCUMENTS_SUCCESS,
+          payload: {
+            documents: data.data.documents || data.data,
+            totalCount: data.data.totalCount || data.data.length,
+            page: page,
+            limit: limit,
+          },
+        });
+      } else {
+        throw new Error('Failed to fetch signer documents: Invalid response');
+      }
+    } catch (err: any) {
+      dispatch({
+        type: GET_SIGNER_DOCUMENTS_FAIL,
+        payload: err.response?.data?.message || err.message || 'Failed to fetch signer documents',
+      });
+    }
+  };
+
+export const resetSignerDocuments = (): ThunkResult<void> => (dispatch) => {
+  dispatch({ type: GET_SIGNER_DOCUMENTS_RESET });
 };

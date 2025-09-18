@@ -19,6 +19,7 @@ import {
   signedDocumentsReducer,
   uploadProgressReducer,
   uploaderDocumentsReducer,
+  signerDocumentsReducer,
 } from './reducers/uploadReducers';
 
 const isBrowser = typeof window !== 'undefined';
@@ -53,6 +54,7 @@ export const store = configureStore({
     signedDocuments: signedDocumentsReducer,
     uploadProgress: uploadProgressReducer,
     uploaderDocuments: uploaderDocumentsReducer,
+    signerDocuments: signerDocumentsReducer,
   },
   preloadedState: initialState,
 });

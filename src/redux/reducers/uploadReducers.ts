@@ -42,6 +42,10 @@ import {
   GET_UPLOADER_DOCUMENTS_SUCCESS,
   GET_UPLOADER_DOCUMENTS_FAIL,
   GET_UPLOADER_DOCUMENTS_RESET,
+  GET_SIGNER_DOCUMENTS_FAIL,
+  GET_SIGNER_DOCUMENTS_REQUEST,
+  GET_SIGNER_DOCUMENTS_SUCCESS,
+  GET_SIGNER_DOCUMENTS_RESET,
 } from '../constants/uploadConstants';
 
 // Signature Field Interface
@@ -164,6 +168,15 @@ export interface UploaderDocumentsState {
   limit?: number;
 }
 
+export interface SignerDocumentsState {
+  loading?: boolean;
+  documents?: Upload[];
+  error?: string;
+  totalCount?: number;
+  page?: number;
+  limit?: number;
+}
+
 // Initial States
 const initialUploadDocumentState: UploadDocumentState = {};
 const initialUploadsListState: UploadsListState = { uploads: [] };
@@ -176,6 +189,7 @@ const initialPendingSignaturesState: PendingSignaturesState = { documents: [] };
 const initialSignedDocumentsState: SignedDocumentsState = { documents: [] };
 const initialUploadProgressState: UploadProgressState = { progress: 0, uploading: false };
 const initialUploaderDocumentsState: UploaderDocumentsState = { documents: [] };
+const initialSignerDocumentsState: SignerDocumentsState = { documents: [] };
 
 // Upload Document Reducer
 export const uploadDocumentReducer = (
@@ -378,8 +392,8 @@ export const uploaderDocumentsReducer = (
     case GET_UPLOADER_DOCUMENTS_REQUEST:
       return { loading: true };
     case GET_UPLOADER_DOCUMENTS_SUCCESS:
-      return { 
-        loading: false, 
+      return {
+        loading: false,
         documents: action.payload.documents || action.payload,
         totalCount: action.payload.totalCount,
         page: action.payload.page,
@@ -388,6 +402,31 @@ export const uploaderDocumentsReducer = (
     case GET_UPLOADER_DOCUMENTS_FAIL:
       return { loading: false, error: action.payload };
     case GET_UPLOADER_DOCUMENTS_RESET:
+      return { documents: [] };
+    default:
+      return state;
+  }
+};
+
+// Signer Documents Reducer
+export const signerDocumentsReducer = (
+  state: SignerDocumentsState = initialSignerDocumentsState,
+  action: AnyAction
+): SignerDocumentsState => {
+  switch (action.type) {
+    case GET_SIGNER_DOCUMENTS_REQUEST:
+      return { loading: true };
+    case GET_SIGNER_DOCUMENTS_SUCCESS:
+      return {
+        loading: false,
+        documents: action.payload.documents || action.payload,
+        totalCount: action.payload.totalCount,
+        page: action.payload.page,
+        limit: action.payload.limit
+      };
+    case GET_SIGNER_DOCUMENTS_FAIL:
+      return { loading: false, error: action.payload };
+    case GET_SIGNER_DOCUMENTS_RESET:
       return { documents: [] };
     default:
       return state;

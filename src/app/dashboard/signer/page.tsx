@@ -26,6 +26,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import {
@@ -41,6 +44,12 @@ import {
   PictureAsPdf,
   Download,
   OpenInNew,
+  Person,
+  Email,
+  CalendarToday,
+  Clear,
+  Save,
+  Send,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { logout } from '@/redux/actions/AccountActions';
@@ -56,6 +65,15 @@ export default function SignerDashboard() {
   const [isClient, setIsClient] = useState(false);
   const [viewerDialogOpen, setViewerDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+  const [signatureData, setSignatureData] = useState({
+    signature: '',
+    name: '',
+    email: '',
+    date: new Date().toISOString().split('T')[0],
+  });
+  const [signatureCanvas, setSignatureCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
 
   // Handle client-side hydration
   useEffect(() => {
@@ -93,6 +111,106 @@ export default function SignerDashboard() {
   const handleCloseViewer = () => {
     setViewerDialogOpen(false);
     setSelectedDocument(null);
+  };
+
+  const handleOpenSignatureDialog = (document: any) => {
+    setSelectedDocument(document);
+    setSignatureData({
+      signature: '',
+      name: userInfo?.name || '',
+      email: userInfo?.email || '',
+      date: new Date().toISOString().split('T')[0],
+    });
+    setSignatureDialogOpen(true);
+  };
+
+  const handleCloseSignatureDialog = () => {
+    setSignatureDialogOpen(false);
+    setSelectedDocument(null);
+    setSignatureData({
+      signature: '',
+      name: '',
+      email: '',
+      date: new Date().toISOString().split('T')[0],
+    });
+    // Clear signature canvas
+    if (signatureCanvas) {
+      const ctx = signatureCanvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+      }
+    }
+  };
+
+  // Signature canvas functions
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    setIsDrawing(true);
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.beginPath();
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    }
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+      ctx.stroke();
+    }
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+  };
+
+  const clearSignature = () => {
+    if (signatureCanvas) {
+      const ctx = signatureCanvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+      }
+    }
+  };
+
+  const saveSignature = () => {
+    if (signatureCanvas) {
+      const dataURL = signatureCanvas.toDataURL('image/png');
+      setSignatureData(prev => ({ ...prev, signature: dataURL }));
+    }
+  };
+
+  const handleSignatureSubmit = async () => {
+    if (!signatureData.signature || !signatureData.name || !signatureData.email) {
+      alert('Please complete all required fields including signature');
+      return;
+    }
+
+    try {
+      // Here you would typically call an API to submit the signed document
+      console.log('Submitting signature:', {
+        documentId: selectedDocument._id,
+        signatureData: signatureData,
+        signatureImage: signatureData.signature
+      });
+
+      // For now, just show success message
+      alert('Document signed successfully!');
+      handleCloseSignatureDialog();
+      
+      // Refresh the documents list
+      if (userInfo) {
+        dispatch(getSignerDocuments(userInfo._id, 1, 10));
+      }
+    } catch (error) {
+      console.error('Error submitting signature:', error);
+      alert('Error submitting signature. Please try again.');
+    }
   };
 
   // Show loading state during hydration
@@ -305,6 +423,7 @@ export default function SignerDashboard() {
                             variant="contained"
                             size="small"
                             startIcon={<Edit />}
+                            onClick={() => handleOpenSignatureDialog(doc)}
                             sx={{
                               backgroundColor: '#10b981',
                               '&:hover': {
@@ -514,6 +633,189 @@ export default function SignerDashboard() {
             </Box>
           )}
         </DialogContent>
+      </Dialog>
+
+      {/* Signature Dialog */}
+      <Dialog 
+        open={signatureDialogOpen} 
+        onClose={handleCloseSignatureDialog} 
+        maxWidth="md" 
+        fullWidth
+      >
+        <DialogTitle className="flex items-center gap-2">
+          <Edit className="text-green-600" />
+          Sign Document
+        </DialogTitle>
+        <DialogContent>
+          {selectedDocument && (
+            <Box className="space-y-6 pt-4">
+              {/* Document Info */}
+              <Box className="p-4 bg-gray-50 rounded-lg">
+                <Typography variant="h6" className="mb-2">
+                  {selectedDocument.title || selectedDocument.originalFileName}
+                </Typography>
+                <Typography variant="body2" className="text-gray-600">
+                  From: {selectedDocument.uploader?.name || selectedDocument.uploader?.email}
+                </Typography>
+                {selectedDocument.signatureFields && selectedDocument.signatureFields.length > 0 && (
+                  <Typography variant="body2" className="text-blue-600 mt-1">
+                    {selectedDocument.signatureFields.length} signature field{selectedDocument.signatureFields.length > 1 ? 's' : ''} required
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Signature Canvas */}
+              <Box>
+                <Typography variant="subtitle1" className="mb-2 font-medium">
+                  Digital Signature *
+                </Typography>
+                <Box className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                  <canvas
+                    ref={(canvas) => {
+                      if (canvas) {
+                        setSignatureCanvas(canvas);
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                          ctx.strokeStyle = '#10b981';
+                          ctx.lineWidth = 2;
+                          ctx.lineCap = 'round';
+                          ctx.lineJoin = 'round';
+                        }
+                      }
+                    }}
+                    width={600}
+                    height={200}
+                    className="border border-gray-300 rounded cursor-crosshair"
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                  />
+                  <Box className="flex gap-2 mt-2">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Clear />}
+                      onClick={clearSignature}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Save />}
+                      onClick={saveSignature}
+                    >
+                      Save Signature
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Signature Form */}
+              <Box className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <TextField
+                  fullWidth
+                  label="Full Name"
+                  value={signatureData.name}
+                  onChange={(e) => setSignatureData(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                  InputProps={{
+                    startAdornment: <Person className="text-gray-400 mr-2" />,
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#d1d5db' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                    },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={signatureData.email}
+                  onChange={(e) => setSignatureData(prev => ({ ...prev, email: e.target.value }))}
+                  required
+                  InputProps={{
+                    startAdornment: <Email className="text-gray-400 mr-2" />,
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#d1d5db' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                    },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  label="Date"
+                  type="date"
+                  value={signatureData.date}
+                  onChange={(e) => setSignatureData(prev => ({ ...prev, date: e.target.value }))}
+                  required
+                  InputProps={{
+                    startAdornment: <CalendarToday className="text-gray-400 mr-2" />,
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: '#d1d5db' },
+                      '&:hover fieldset': { borderColor: '#10b981' },
+                      '&.Mui-focused fieldset': { borderColor: '#10b981' },
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* Signature Preview */}
+              {signatureData.signature && (
+                <Box>
+                  <Typography variant="subtitle2" className="mb-2">
+                    Signature Preview:
+                  </Typography>
+                  <Box className="border border-gray-300 rounded p-2 bg-white">
+                    <img 
+                      src={signatureData.signature} 
+                      alt="Signature preview" 
+                      className="max-h-20"
+                    />
+                  </Box>
+                </Box>
+              )}
+
+              {/* Instructions */}
+              <Alert severity="info">
+                <Typography variant="body2">
+                  Please draw your signature in the canvas above, fill in your details, and click "Submit Signature" to complete the signing process.
+                </Typography>
+              </Alert>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions className="p-4">
+          <Button 
+            onClick={handleCloseSignatureDialog}
+            sx={{ color: '#6b7280' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSignatureSubmit}
+            variant="contained"
+            startIcon={<Send />}
+            disabled={!signatureData.signature || !signatureData.name || !signatureData.email}
+            sx={{
+              backgroundColor: '#10b981',
+              '&:hover': {
+                backgroundColor: '#059669',
+              },
+            }}
+          >
+            Submit Signature
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Floating Action Button */}

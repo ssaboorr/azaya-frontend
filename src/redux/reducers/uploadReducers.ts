@@ -38,6 +38,10 @@ import {
   GET_SIGNED_DOCUMENTS_RESET,
   UPLOAD_PROGRESS_UPDATE,
   UPLOAD_PROGRESS_RESET,
+  GET_UPLOADER_DOCUMENTS_REQUEST,
+  GET_UPLOADER_DOCUMENTS_SUCCESS,
+  GET_UPLOADER_DOCUMENTS_FAIL,
+  GET_UPLOADER_DOCUMENTS_RESET,
 } from '../constants/uploadConstants';
 
 // Signature Field Interface
@@ -54,26 +58,24 @@ export interface SignatureField {
 // Upload Interface
 export interface Upload {
   _id: string;
-  fileName: string;
-  originalName: string;
-  fileSize: number;
-  fileType: string;
-  filePath: string;
   title: string; // Document title
+  originalFileName: string; // Original file name
+  cloudinaryUrl: string; // Cloudinary file URL
+  cloudinaryPublicId: string; // Cloudinary public ID
+  uploader: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  assignedSigner: {
+    _id: string;
+    name: string;
+    email: string;
+  };
   signerEmail: string; // Email of assigned signer
   signatureFields: SignatureField[]; // Signature field positions
-  uploadedBy: {
-    _id: string;
-    name: string;
-    email: string;
-  };
-  assignedTo?: {
-    _id: string;
-    name: string;
-    email: string;
-  };
-  status: 'uploaded' | 'assigned' | 'signed' | 'completed' | 'rejected';
-  priority: 'low' | 'normal' | 'high' | 'urgent';
+  status: 'pending' | 'assigned' | 'signed' | 'completed' | 'rejected';
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
   dueDate?: string;
   signedAt?: string;
   signatureData?: {
@@ -84,6 +86,7 @@ export interface Upload {
   comments?: string;
   createdAt: string;
   updatedAt: string;
+  __v?: number;
 }
 
 // State Interfaces
@@ -152,6 +155,15 @@ export interface UploadProgressState {
   uploading?: boolean;
 }
 
+export interface UploaderDocumentsState {
+  loading?: boolean;
+  documents?: Upload[];
+  error?: string;
+  totalCount?: number;
+  page?: number;
+  limit?: number;
+}
+
 // Initial States
 const initialUploadDocumentState: UploadDocumentState = {};
 const initialUploadsListState: UploadsListState = { uploads: [] };
@@ -163,6 +175,7 @@ const initialSignDocumentState: SignDocumentState = {};
 const initialPendingSignaturesState: PendingSignaturesState = { documents: [] };
 const initialSignedDocumentsState: SignedDocumentsState = { documents: [] };
 const initialUploadProgressState: UploadProgressState = { progress: 0, uploading: false };
+const initialUploaderDocumentsState: UploaderDocumentsState = { documents: [] };
 
 // Upload Document Reducer
 export const uploadDocumentReducer = (
@@ -351,6 +364,31 @@ export const uploadProgressReducer = (
       return { progress: action.payload, uploading: true };
     case UPLOAD_PROGRESS_RESET:
       return { progress: 0, uploading: false };
+    default:
+      return state;
+  }
+};
+
+// Uploader Documents Reducer
+export const uploaderDocumentsReducer = (
+  state: UploaderDocumentsState = initialUploaderDocumentsState,
+  action: AnyAction
+): UploaderDocumentsState => {
+  switch (action.type) {
+    case GET_UPLOADER_DOCUMENTS_REQUEST:
+      return { loading: true };
+    case GET_UPLOADER_DOCUMENTS_SUCCESS:
+      return { 
+        loading: false, 
+        documents: action.payload.documents || action.payload,
+        totalCount: action.payload.totalCount,
+        page: action.payload.page,
+        limit: action.payload.limit
+      };
+    case GET_UPLOADER_DOCUMENTS_FAIL:
+      return { loading: false, error: action.payload };
+    case GET_UPLOADER_DOCUMENTS_RESET:
+      return { documents: [] };
     default:
       return state;
   }

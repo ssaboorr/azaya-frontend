@@ -38,6 +38,10 @@ import {
   GET_SIGNED_DOCUMENTS_FAIL,
   UPLOAD_PROGRESS_UPDATE,
   UPLOAD_PROGRESS_RESET,
+  GET_UPLOADER_DOCUMENTS_REQUEST,
+  GET_UPLOADER_DOCUMENTS_SUCCESS,
+  GET_UPLOADER_DOCUMENTS_FAIL,
+  GET_UPLOADER_DOCUMENTS_RESET,
 } from '../constants/uploadConstants';
 import { RootState } from '../store';
 
@@ -98,22 +102,21 @@ export const uploadDocument =
         console.log("After Uploading ==>",data.data)
         const uploadInfo = {
           _id: data.data._id,
-          fileName:  data.data.fileName,
-          originalName:  data.data.originalName || title,
-          fileSize:  data.data.fileSize,
-          fileType:  data.data.fileType,
-          filePath:  data.data.filePath,
-          title:  data.data.title || title,
-          signerEmail:  data.data.signerEmail || signerEmail,
-          signatureFields:  data.data.signatureFields || signatureFields,
-          uploadedBy:  data.data.uploadedBy,
-          assignedTo: data.data.assignedTo,
-          status:  data.data.status || 'uploaded',
+          title: data.data.title || title,
+          originalFileName: data.data.originalFileName || title,
+          cloudinaryUrl: data.data.cloudinaryUrl,
+          cloudinaryPublicId: data.data.cloudinaryPublicId,
+          uploader: data.data.uploader,
+          assignedSigner: data.data.assignedSigner,
+          signerEmail: data.data.signerEmail || signerEmail,
+          signatureFields: data.data.signatureFields || signatureFields,
+          status: data.data.status || 'pending',
           priority: data.data.priority || 'normal',
-          dueDate:  data.data.dueDate,
-          comments:data.data.comments,
-          createdAt:  data.data.createdAt,
-          updatedAt:  data.data.updatedAt,
+          dueDate: data.data.dueDate,
+          comments: data.data.comments,
+          createdAt: data.data.createdAt,
+          updatedAt: data.data.updatedAt,
+          __v: data.data.__v,
         };
 
         dispatch({ type: UPLOAD_DOCUMENT_SUCCESS, payload: uploadInfo });
@@ -408,4 +411,64 @@ export const resetUploadDetails = (): ThunkResult<void> => (dispatch) => {
 
 export const resetUpdateUpload = (): ThunkResult<void> => (dispatch) => {
   dispatch({ type: UPDATE_UPLOAD_RESET });
+};
+
+// Get Documents by Uploader ID Action
+export const getUploaderDocuments = (
+  uploaderId: string,
+  page: number = 1,
+  limit: number = 10,
+  status?: string
+): ThunkResult<Promise<void>> =>
+  async (dispatch, getState) => {
+    try {
+      dispatch({ type: GET_UPLOADER_DOCUMENTS_REQUEST });
+
+      const state = getState();
+      const token = state.userLogin.userInfo?.token;
+
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+
+      if (status) {
+        params.append('status', status);
+      }
+
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      };
+
+      const { data } = await axiosInstance.get(`/api/documents/uploader/${uploaderId}`, config);
+
+      if (data.success && data.data) {
+        dispatch({
+          type: GET_UPLOADER_DOCUMENTS_SUCCESS,
+          payload: {
+            documents: data.data.documents || data.data,
+            totalCount: data.data.totalCount || data.data.length,
+            page: page,
+            limit: limit,
+          },
+        });
+      } else {
+        throw new Error('Failed to fetch uploader documents: Invalid response');
+      }
+    } catch (err: any) {
+      dispatch({
+        type: GET_UPLOADER_DOCUMENTS_FAIL,
+        payload: err.response?.data?.message || err.message || 'Failed to fetch uploader documents',
+      });
+    }
+  };
+
+export const resetUploaderDocuments = (): ThunkResult<void> => (dispatch) => {
+  dispatch({ type: GET_UPLOADER_DOCUMENTS_RESET });
 };

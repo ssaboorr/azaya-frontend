@@ -107,8 +107,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4 sm:p-6 lg:p-8">
+      
       <Card className="w-full max-w-md shadow-xl border-0">
+        
         <CardContent className="p-6 sm:p-8 lg:p-10">
+
           <Box className="text-center mb-8">
             <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
               <Lock className="text-white text-3xl" />
@@ -116,9 +119,19 @@ export default function LoginPage() {
             <Typography variant="h4" className="text-gray-800 font-bold mb-3">
               Welcome Back
             </Typography>
-            <Typography variant="body1" className="text-gray-600">
+            <Typography variant="body1" className="text-gray-600 mb-4">
               Sign in to your account
             </Typography>
+            <Box className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <Typography variant="body2" className="text-blue-800 text-sm">
+                <strong>Demo Credentials Uploader:</strong><br />
+                 john@example.com | Password: password123<br />
+              </Typography>
+              <Typography variant="body2" className="text-blue-800 text-sm">
+                <strong>Demo Credentials Signer::</strong><br />
+               alice@example.com | Password: password123
+              </Typography>
+            </Box>
           </Box>
 
           {error && (
@@ -133,10 +146,11 @@ export default function LoginPage() {
               name="email"
               label="Email Address"
               type="email"
+              placeholder="Enter your email address"
               value={formData.email}
               onChange={handleChange}
               error={!!validationErrors.email}
-              helperText={validationErrors.email}
+              helperText={validationErrors.email || "We'll never share your email with anyone else"}
               disabled={loading}
               InputProps={{
                 startAdornment: (
@@ -159,6 +173,10 @@ export default function LoginPage() {
                     opacity: 1,
                   },
                 },
+                '& .MuiFormHelperText-root': {
+                  color: '#6b7280',
+                  fontSize: '0.875rem',
+                },
               }}
             />
 
@@ -167,10 +185,11 @@ export default function LoginPage() {
               name="password"
               label="Password"
               type={showPassword ? 'text' : 'password'}
+              placeholder="Enter your password"
               value={formData.password}
               onChange={handleChange}
               error={!!validationErrors.password}
-              helperText={validationErrors.password}
+              helperText={validationErrors.password || "Must be at least 6 characters long"}
               disabled={loading}
               InputProps={{
                 startAdornment: (
@@ -200,6 +219,10 @@ export default function LoginPage() {
                     color: '#6b7280',
                     opacity: 1,
                   },
+                },
+                '& .MuiFormHelperText-root': {
+                  color: '#6b7280',
+                  fontSize: '0.875rem',
                 },
               }}
             />

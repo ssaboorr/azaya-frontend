@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Next.js + Tailwind + Material-UI",
+  title: "Azaya",
   description: "A modern web application showcasing Next.js, Tailwind CSS, and Material-UI integration",
 };
 

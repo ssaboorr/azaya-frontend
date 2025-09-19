@@ -46,6 +46,10 @@ import {
   GET_SIGNER_DOCUMENTS_SUCCESS,
   GET_SIGNER_DOCUMENTS_FAIL,
   GET_SIGNER_DOCUMENTS_RESET,
+  SIGN_DOCUMENT_BY_ID_REQUEST,
+  SIGN_DOCUMENT_BY_ID_SUCCESS,
+  SIGN_DOCUMENT_BY_ID_FAIL,
+  SIGN_DOCUMENT_BY_ID_RESET,
 } from '../constants/uploadConstants';
 import { RootState } from '../store';
 
@@ -535,4 +539,107 @@ export const getSignerDocuments = (
 
 export const resetSignerDocuments = (): ThunkResult<void> => (dispatch) => {
   dispatch({ type: GET_SIGNER_DOCUMENTS_RESET });
+};
+
+// Sign Document by ID Action
+export const signDocumentById = (
+  documentId: string,
+  signatureData: {
+    signature: string;
+    name: string;
+    email: string;
+    date: string;
+    signedPdf?: Blob; // Optional signed PDF blob
+  },
+  currentDocument?: any // Current document data to include
+): ThunkResult<Promise<void>> =>
+  async (dispatch, getState) => {
+    try {
+      dispatch({ type: SIGN_DOCUMENT_BY_ID_REQUEST });
+console.log("signatureData in action ==>",signatureData)
+      const state = getState();
+      const token = state.userLogin.userInfo?.token;
+
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      // Prepare FormData for file upload if PDF is provided
+      let requestData;
+      let config;
+
+      if (signatureData.signedPdf) {
+        // Use FormData for file upload
+        const formData = new FormData();
+        formData.append('signerName', signatureData.name);
+        formData.append('signerEmail', signatureData.email);
+        formData.append('signedDate', signatureData.date);
+        formData.append('status', 'signed');
+        
+        // Add current document fields
+        if (currentDocument) {
+          formData.append('title', currentDocument.title || '');
+          formData.append('originalFileName', currentDocument.originalFileName || '');
+          formData.append('cloudinaryUrl', currentDocument.cloudinaryUrl || '');
+          formData.append('cloudinaryPublicId', currentDocument.cloudinaryPublicId || '');
+          formData.append('uploader', JSON.stringify(currentDocument.uploader || {}));
+          formData.append('assignedSigner', JSON.stringify(currentDocument.assignedSigner || {}));
+          formData.append('signatureFields', JSON.stringify(currentDocument.signatureFields || []));
+        }
+        
+        // Append the signed PDF file
+        formData.append('document', signatureData.signedPdf, 'signed-document.pdf');
+        
+        requestData = formData;
+        config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        };
+      } else {
+        requestData = {
+          signatureImage: signatureData.signature,
+          signerName: signatureData.name,
+          signerEmail: signatureData.email,
+          signedDate: signatureData.date,
+          status: 'signed',
+          ...(currentDocument && {
+            title: currentDocument.title,
+            originalFileName: currentDocument.originalFileName,
+            cloudinaryUrl: currentDocument.cloudinaryUrl,
+            cloudinaryPublicId: currentDocument.cloudinaryPublicId,
+            uploader: currentDocument.uploader,
+            assignedSigner: currentDocument.assignedSigner,
+            signatureFields: currentDocument.signatureFields,
+          })
+        };
+        config = {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        };
+      }
+
+      const { data } = await axiosInstance.put(`/api/documents/${documentId}`, requestData, config);
+
+      if (data.success && data.data) {
+        dispatch({
+          type: SIGN_DOCUMENT_BY_ID_SUCCESS,
+          payload: data.data,
+        });
+      } else {
+        throw new Error('Failed to sign document: Invalid response');
+      }
+    } catch (err: any) {
+      dispatch({
+        type: SIGN_DOCUMENT_BY_ID_FAIL,
+        payload: err.response?.data?.message || err.message || 'Failed to sign document',
+      });
+    }
+  };
+
+export const resetSignDocumentById = (): ThunkResult<void> => (dispatch) => {
+  dispatch({ type: SIGN_DOCUMENT_BY_ID_RESET });
 };

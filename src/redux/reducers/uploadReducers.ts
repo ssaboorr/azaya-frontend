@@ -46,6 +46,10 @@ import {
   GET_SIGNER_DOCUMENTS_REQUEST,
   GET_SIGNER_DOCUMENTS_SUCCESS,
   GET_SIGNER_DOCUMENTS_RESET,
+  SIGN_DOCUMENT_BY_ID_REQUEST,
+  SIGN_DOCUMENT_BY_ID_SUCCESS,
+  SIGN_DOCUMENT_BY_ID_FAIL,
+  SIGN_DOCUMENT_BY_ID_RESET,
 } from '../constants/uploadConstants';
 
 // Signature Field Interface
@@ -177,6 +181,13 @@ export interface SignerDocumentsState {
   limit?: number;
 }
 
+export interface SignDocumentByIdState {
+  loading?: boolean;
+  success?: boolean;
+  error?: string;
+  signedDocument?: Upload;
+}
+
 // Initial States
 const initialUploadDocumentState: UploadDocumentState = {};
 const initialUploadsListState: UploadsListState = { uploads: [] };
@@ -190,6 +201,7 @@ const initialSignedDocumentsState: SignedDocumentsState = { documents: [] };
 const initialUploadProgressState: UploadProgressState = { progress: 0, uploading: false };
 const initialUploaderDocumentsState: UploaderDocumentsState = { documents: [] };
 const initialSignerDocumentsState: SignerDocumentsState = { documents: [] };
+const initialSignDocumentByIdState: SignDocumentByIdState = {};
 
 // Upload Document Reducer
 export const uploadDocumentReducer = (
@@ -428,6 +440,29 @@ export const signerDocumentsReducer = (
       return { loading: false, error: action.payload };
     case GET_SIGNER_DOCUMENTS_RESET:
       return { documents: [] };
+    default:
+      return state;
+  }
+};
+
+// Sign Document by ID Reducer
+export const signDocumentByIdReducer = (
+  state: SignDocumentByIdState = initialSignDocumentByIdState,
+  action: AnyAction
+): SignDocumentByIdState => {
+  switch (action.type) {
+    case SIGN_DOCUMENT_BY_ID_REQUEST:
+      return { loading: true };
+    case SIGN_DOCUMENT_BY_ID_SUCCESS:
+      return {
+        loading: false,
+        success: true,
+        signedDocument: action.payload
+      };
+    case SIGN_DOCUMENT_BY_ID_FAIL:
+      return { loading: false, error: action.payload };
+    case SIGN_DOCUMENT_BY_ID_RESET:
+      return {};
     default:
       return state;
   }

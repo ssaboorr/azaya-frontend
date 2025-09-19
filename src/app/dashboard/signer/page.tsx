@@ -31,6 +31,7 @@ import {
   Snackbar,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import jsPDF from 'jspdf';
 import {
   ExitToApp,
   Edit,
@@ -53,7 +54,7 @@ import {
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { logout } from '@/redux/actions/AccountActions';
-import { getSignerDocuments, resetSignerDocuments } from '@/redux/actions/uploadActions';
+import { getSignerDocuments, resetSignerDocuments, signDocumentById, resetSignDocumentById } from '@/redux/actions/uploadActions';
 
 export default function SignerDashboard() {
   const router = useRouter();
@@ -61,6 +62,9 @@ export default function SignerDashboard() {
   const { userInfo } = useAppSelector((state) => state.userLogin);
   const { loading: signerDocsLoading, documents: signerDocs, totalCount: signerDocsCount } = useAppSelector(
     (state) => state.signerDocuments
+  );
+  const { loading: signLoading, success: signSuccess, error: signError } = useAppSelector(
+    (state) => state.signDocumentById
   );
   const [isClient, setIsClient] = useState(false);
   const [viewerDialogOpen, setViewerDialogOpen] = useState(false);
@@ -74,6 +78,14 @@ export default function SignerDashboard() {
   });
   const [signatureCanvas, setSignatureCanvas] = useState<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'info' | 'warning',
+  });
+  const [signedDocumentPreview, setSignedDocumentPreview] = useState<string | null>(null);
+  const [showSignedPreview, setShowSignedPreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
   // Handle client-side hydration
   useEffect(() => {
@@ -98,6 +110,41 @@ export default function SignerDashboard() {
     }
   }, [dispatch, userInfo, isClient]);
 
+  // Handle signing success
+  useEffect(() => {
+    if (signSuccess) {
+      setSnackbar({
+        open: true,
+        message: 'Document signed successfully!',
+        severity: 'success',
+      });
+      handleCloseSignatureDialog();
+      
+      // Refresh the documents list
+      if (userInfo) {
+        dispatch(getSignerDocuments(userInfo._id, 1, 10));
+      }
+      
+      // Reset the sign state
+      dispatch(resetSignDocumentById());
+    }
+  }, [signSuccess, dispatch, userInfo]);
+
+  // Handle signing error
+  useEffect(() => {
+    if (signError) {
+      setSnackbar({
+        open: true,
+        message: signError,
+        severity: 'error',
+      });
+    }
+  }, [signError]);
+
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
   const handleLogout = async () => {
     await dispatch(logout());
     router.push('/login');
@@ -121,6 +168,9 @@ export default function SignerDashboard() {
       email: userInfo?.email || '',
       date: new Date().toISOString().split('T')[0],
     });
+    setSignedDocumentPreview(null);
+    setShowSignedPreview(false);
+    setIsGeneratingPreview(false);
     setSignatureDialogOpen(true);
   };
 
@@ -133,6 +183,8 @@ export default function SignerDashboard() {
       email: '',
       date: new Date().toISOString().split('T')[0],
     });
+    setSignedDocumentPreview(null);
+    setShowSignedPreview(false);
     // Clear signature canvas
     if (signatureCanvas) {
       const ctx = signatureCanvas.getContext('2d');
@@ -178,38 +230,209 @@ export default function SignerDashboard() {
     }
   };
 
-  const saveSignature = () => {
+  const saveSignature = async () => {
     if (signatureCanvas) {
       const dataURL = signatureCanvas.toDataURL('image/png');
       setSignatureData(prev => ({ ...prev, signature: dataURL }));
+      
+      // Generate signed PDF document
+      setIsGeneratingPreview(true);
+      try {
+        const documentTitle = selectedDocument?.title || selectedDocument?.originalFileName || 'Document';
+        const signedPdfBlob = await createSignedPdf({
+          ...signatureData,
+          signature: dataURL
+        }, documentTitle);
+        
+        // Convert PDF blob to base64 for preview
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          setSignedDocumentPreview(base64);
+          setShowSignedPreview(true);
+          setIsGeneratingPreview(false);
+          setSnackbar({
+            open: true,
+            message: 'Signature saved and PDF generated successfully',
+            severity: 'success',
+          });
+        };
+        reader.readAsDataURL(signedPdfBlob as Blob);
+      } catch (error) {
+        console.warn('Could not generate signed PDF:', error);
+        setIsGeneratingPreview(false);
+        setSnackbar({
+          open: true,
+          message: 'Signature saved, but PDF generation failed',
+          severity: 'warning',
+        });
+      }
     }
+  };
+
+  // Function to create a signed PDF document
+  const createSignedPdf = (signatureData: any, documentTitle: string) => {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create a new PDF document
+        const pdf = new jsPDF('p', 'mm', 'a4'); // A4 size in millimeters
+        
+        // Set up the document
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        
+        // Add document title
+        pdf.setFontSize(20);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(documentTitle, pageWidth / 2, 30, { align: 'center' });
+        
+        // Add a line under the title
+        pdf.setLineWidth(0.5);
+        pdf.line(20, 35, pageWidth - 20, 35);
+        
+        // Add document content
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        
+        const content = [
+          'This document has been digitally signed.',
+          '',
+          'Document Details:',
+          `• Title: ${documentTitle}`,
+          `• Signer: ${signatureData.name}`,
+          `• Email: ${signatureData.email}`,
+          `• Date: ${signatureData.date}`,
+          `• Status: Signed`,
+          '',
+          'The signature below represents the signer\'s agreement to the contents of this document.',
+          'This is a legally binding digital signature.',
+          '',
+          'Document content would appear here in the actual implementation.',
+          'This is a preview showing how the signed document will look.'
+        ];
+        
+        let yPosition = 50;
+        content.forEach((line) => {
+          if (yPosition > pageHeight - 50) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          pdf.text(line, 20, yPosition);
+          yPosition += 6;
+        });
+        
+        // Add signature area at the bottom with more padding
+        const signatureY = pageHeight - 80; // More space from bottom
+        const signatureX = pageWidth - 100; // More space from right edge
+        const signatureBoxWidth = 80; // Wider signature box
+        const signatureBoxHeight = 50; // Taller signature box
+        
+        // Draw signature box with padding
+        pdf.setLineWidth(0.8);
+        pdf.setDrawColor(100, 100, 100); // Gray border
+        pdf.rect(signatureX - 10, signatureY - 10, signatureBoxWidth, signatureBoxHeight);
+        
+        // Add inner padding box
+        pdf.setLineWidth(0.3);
+        pdf.setDrawColor(200, 200, 200); // Light gray inner border
+        pdf.rect(signatureX - 8, signatureY - 8, signatureBoxWidth - 4, signatureBoxHeight - 4);
+        
+        // Add signature label with more spacing
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Digital Signature', signatureX - 5, signatureY - 3);
+        
+        // Add a line under the label
+        pdf.setLineWidth(0.2);
+        pdf.line(signatureX - 5, signatureY - 1, signatureX + signatureBoxWidth - 15, signatureY - 1);
+        
+        // Convert signature image to base64 and add to PDF
+        const signatureImg = new Image();
+        signatureImg.onload = () => {
+          try {
+            // Add signature image to PDF with padding
+            const imgWidth = 65; // Slightly larger signature
+            const imgHeight = 25; // Slightly taller signature
+            const imgX = signatureX - 5; // Centered in the box
+            const imgY = signatureY + 2; // Small padding from label
+            
+            pdf.addImage(signatureData.signature, 'PNG', imgX, imgY, imgWidth, imgHeight);
+            
+            // Add signer details below signature with more spacing
+            pdf.setFontSize(7);
+            pdf.setFont('helvetica', 'normal');
+            const detailsY = signatureY + 30; // More space below signature
+            pdf.text(signatureData.name, imgX, detailsY);
+            pdf.text(signatureData.email, imgX, detailsY + 4);
+            pdf.text(signatureData.date, imgX, detailsY + 8);
+            
+            // Generate PDF blob
+            const pdfBlob = pdf.output('blob');
+            resolve(pdfBlob);
+          } catch (error) {
+            reject(new Error('Could not add signature to PDF: ' + error));
+          }
+        };
+        
+        signatureImg.onerror = () => {
+          reject(new Error('Could not load signature image'));
+        };
+        
+        signatureImg.src = signatureData.signature;
+        
+      } catch (error) {
+        reject(error);
+      }
+    });
   };
 
   const handleSignatureSubmit = async () => {
     if (!signatureData.signature || !signatureData.name || !signatureData.email) {
-      alert('Please complete all required fields including signature');
+      setSnackbar({
+        open: true,
+        message: 'Please complete all required fields including signature',
+        severity: 'warning',
+      });
+      return;
+    }
+
+    if (!selectedDocument) {
+      setSnackbar({
+        open: true,
+        message: 'No document selected for signing',
+        severity: 'error',
+      });
       return;
     }
 
     try {
-      // Here you would typically call an API to submit the signed document
-      console.log('Submitting signature:', {
-        documentId: selectedDocument._id,
-        signatureData: signatureData,
-        signatureImage: signatureData.signature
-      });
-
-      // For now, just show success message
-      alert('Document signed successfully!');
-      handleCloseSignatureDialog();
+      // Generate the signed PDF if we have a signature
+      let signedPdfBlob: Blob | undefined;
       
-      // Refresh the documents list
-      if (userInfo) {
-        dispatch(getSignerDocuments(userInfo._id, 1, 10));
+      if (signatureData.signature) {
+        try {
+          const documentTitle = selectedDocument?.title || selectedDocument?.originalFileName || 'Document';
+          signedPdfBlob = await createSignedPdf({
+            ...signatureData,
+            signature: signatureData.signature
+          }, documentTitle) as Blob;
+        } catch (error) {
+          console.warn('Could not generate signed PDF, proceeding without it:', error);
+        }
       }
+
+      // Submit the signature data with PDF and current document data
+      await dispatch(signDocumentById(selectedDocument._id, {
+        ...signatureData,
+        signedPdf: signedPdfBlob
+      }, selectedDocument));
     } catch (error) {
       console.error('Error submitting signature:', error);
-      alert('Error submitting signature. Please try again.');
+      setSnackbar({
+        open: true,
+        message: 'Error submitting signature. Please try again.',
+        severity: 'error',
+      });
     }
   };
 
@@ -705,8 +928,9 @@ export default function SignerDashboard() {
                       size="small"
                       startIcon={<Save />}
                       onClick={saveSignature}
+                      disabled={isGeneratingPreview}
                     >
-                      Save Signature
+                      {isGeneratingPreview ? 'Generating Preview...' : 'Save Signature'}
                     </Button>
                   </Box>
                 </Box>
@@ -785,6 +1009,58 @@ export default function SignerDashboard() {
                 </Box>
               )}
 
+              {/* Signed Document Preview */}
+              {showSignedPreview && signedDocumentPreview && (
+                <Box>
+                  <Typography variant="subtitle2" className="mb-2 font-medium">
+                    Signed Document Preview (PDF):
+                  </Typography>
+                  <Box className="border border-gray-300 rounded p-2 bg-white">
+                    <iframe
+                      src={signedDocumentPreview}
+                      className="w-full rounded"
+                      style={{ height: '400px' }}
+                      title="Signed Document Preview"
+                    />
+                    <Typography variant="caption" className="text-gray-500 mt-2 block">
+                      This is how your signed PDF document will look
+                    </Typography>
+                  </Box>
+                  <Box className="flex gap-2 mt-2">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Download />}
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = signedDocumentPreview;
+                        link.download = `${selectedDocument?.title || 'signed-document'}.pdf`;
+                        link.click();
+                      }}
+                    >
+                      Download PDF
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<OpenInNew />}
+                      onClick={() => {
+                        window.open(signedDocumentPreview, '_blank');
+                      }}
+                    >
+                      Open in New Tab
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setShowSignedPreview(false)}
+                    >
+                      Hide Preview
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+
               {/* Instructions */}
               <Alert severity="info">
                 <Typography variant="body2">
@@ -805,7 +1081,7 @@ export default function SignerDashboard() {
             onClick={handleSignatureSubmit}
             variant="contained"
             startIcon={<Send />}
-            disabled={!signatureData.signature || !signatureData.name || !signatureData.email}
+            disabled={!signatureData.signature || !signatureData.name || !signatureData.email || signLoading}
             sx={{
               backgroundColor: '#10b981',
               '&:hover': {
@@ -813,7 +1089,7 @@ export default function SignerDashboard() {
               },
             }}
           >
-            Submit Signature
+            {signLoading ? 'Signing...' : 'Submit Signature'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -834,6 +1110,22 @@ export default function SignerDashboard() {
       >
         <Edit />
       </Fab>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }

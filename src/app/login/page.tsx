@@ -204,7 +204,7 @@ export default function LoginPage() {
               }}
             />
 
-            <div className="text-right mt-2 mb-2">
+            {/* <div className="text-right mt-2 mb-2">
               <Link
                 href="#"
                 className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -212,7 +212,7 @@ export default function LoginPage() {
               >
                 Forgot password?
               </Link>
-            </div>
+            </div> */}
 
             <Button
               type="submit"
@@ -247,7 +247,7 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <Box className="mt-8 text-center">
+          {/* <Box className="mt-8 text-center">
             <Typography variant="body2" className="text-gray-600">
               Don't have an account?{' '}
               <Link
@@ -258,7 +258,7 @@ export default function LoginPage() {
                 Sign up
               </Link>
             </Typography>
-          </Box>
+          </Box> */}
         </CardContent>
       </Card>
     </div>

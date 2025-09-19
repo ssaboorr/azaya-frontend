@@ -872,7 +872,7 @@ export default function UploaderDashboard() {
                         </Tooltip>
                         {/* Status Change Buttons - Only show for signed documents */}
                         {upload.status === 'signed' && (
-                          <>Welcome Back
+                          <>
                             <Tooltip title="Mark as Verified">
                               <IconButton
                                 size="small"

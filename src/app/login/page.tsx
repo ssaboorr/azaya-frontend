@@ -131,6 +131,10 @@ export default function LoginPage() {
                 <strong>Demo Credentials Signer::</strong><br />
                alice@example.com | Password: password123
               </Typography>
+              <Typography variant="body2" className="text-blue-800 text-sm">
+                <strong>Demo Credentials Signer::</strong><br />
+               jane@example.com | Password: password123
+              </Typography>
             </Box>
           </Box>
 

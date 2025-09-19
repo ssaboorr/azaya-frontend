@@ -52,10 +52,12 @@ import {
   Error,
   Refresh,
   Share,
+  Cancel,
+  Edit,
 } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { logout } from '@/redux/actions/AccountActions';
-import { uploadDocument, getUploads, resetUploadDocument, getUploaderDocuments, resetUploaderDocuments } from '@/redux/actions/uploadActions';
+import { uploadDocument, getUploads, resetUploadDocument, getUploaderDocuments, resetUploaderDocuments, updateDocumentStatus, resetUpdateDocumentStatus } from '@/redux/actions/uploadActions';
 
 export default function UploaderDashboard() {
   const router = useRouter();
@@ -71,6 +73,9 @@ export default function UploaderDashboard() {
   );
   const { loading: uploaderDocsLoading, documents: uploaderDocs, totalCount: uploaderDocsCount } = useAppSelector(
     (state) => state.uploaderDocuments
+  );
+  const { loading: statusUpdateLoading, success: statusUpdateSuccess, error: statusUpdateError } = useAppSelector(
+    (state) => state.updateDocumentStatus
   );
 
   // Local state
@@ -90,6 +95,10 @@ export default function UploaderDashboard() {
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [pdfLoadError, setPdfLoadError] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [statusChangeDialogOpen, setStatusChangeDialogOpen] = useState(false);
+  const [documentToUpdate, setDocumentToUpdate] = useState<any>(null);
+  const [newStatus, setNewStatus] = useState<'verified' | 'rejected'>('verified');
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Handle client-side hydration
   useEffect(() => {
@@ -144,6 +153,37 @@ export default function UploaderDashboard() {
       });
     }
   }, [uploadError]);
+
+  // Handle status update success
+  useEffect(() => {
+    if (statusUpdateSuccess) {
+      setSnackbar({
+        open: true,
+        message: 'Document status updated successfully!',
+        severity: 'success',
+      });
+      setStatusChangeDialogOpen(false);
+      setDocumentToUpdate(null);
+      setNewStatus('verified');
+      setRejectionReason('');
+      dispatch(resetUpdateDocumentStatus());
+      // Refresh the documents list
+      if (userInfo) {
+        dispatch(getUploaderDocuments(userInfo._id, 1, 10));
+      }
+    }
+  }, [statusUpdateSuccess, dispatch, userInfo]);
+
+  // Handle status update error
+  useEffect(() => {
+    if (statusUpdateError) {
+      setSnackbar({
+        open: true,
+        message: statusUpdateError,
+        severity: 'error',
+      });
+    }
+  }, [statusUpdateError]);
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -209,6 +249,28 @@ export default function UploaderDashboard() {
 
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  const handleStatusChange = (document: any, status: 'verified' | 'rejected') => {
+    setDocumentToUpdate(document);
+    setNewStatus(status);
+    setRejectionReason('');
+    setStatusChangeDialogOpen(true);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!documentToUpdate) return;
+
+    const reason = newStatus === 'rejected' ? rejectionReason : undefined;
+    await dispatch(updateDocumentStatus(documentToUpdate._id, newStatus, reason));
+  };
+
+  const handleCloseStatusDialog = () => {
+    setStatusChangeDialogOpen(false);
+    setDocumentToUpdate(null);
+    setNewStatus('verified');
+    setRejectionReason('');
+    dispatch(resetUpdateDocumentStatus());
   };
 
   const handleViewDocument = (document: any) => {
@@ -738,7 +800,7 @@ export default function UploaderDashboard() {
                       </ListItemIcon>
                       <ListItemText
                         primary={
-                          <div className="flex items-center gap-2 mb-1">
+                          <span className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-base">
                               {upload.title || upload.originalFileName}
                             </span>
@@ -747,23 +809,28 @@ export default function UploaderDashboard() {
                               color={getStatusColor(upload.status) as any}
                               size="small"
                             />
-                          </div>
+                          </span>
                         }
                         secondary={
-                          <div className="space-y-1">
-                            <div className="text-gray-600 text-sm">
+                          <span className="block space-y-1">
+                            {upload.status === 'rejected' && (
+                              <span className="block text-red-600 text-sm">
+                                Rejected Reason: {upload.rejectionReason}
+                              </span>
+                            )}
+                            <span className="block text-gray-600 text-sm">
                               Assigned to: {upload.signerEmail || upload.assignedSigner?.email}
-                            </div>
-                            <div className="text-gray-500 text-xs">
+                            </span>
+                            <span className="block text-gray-500 text-xs">
                               Uploaded: {new Date(upload.createdAt).toLocaleDateString()} •
                               Original: {upload.originalFileName}
-                            </div>
+                            </span>
                             {upload.cloudinaryPublicId && (
-                              <div className="text-gray-400 text-xs">
+                              <span className="block text-gray-400 text-xs">
                                 ID: {upload.cloudinaryPublicId}
-                              </div>
+                              </span>
                             )}
-                          </div>
+                          </span>
                         }
                       />
                       <Box className="flex gap-1">
@@ -803,6 +870,31 @@ export default function UploaderDashboard() {
                             <Share />
                           </IconButton>
                         </Tooltip>
+                        {/* Status Change Buttons - Only show for signed documents */}
+                        {upload.status === 'signed' && (
+                          <>
+                            <Tooltip title="Mark as Verified">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleStatusChange(upload, 'verified')}
+                                sx={{ color: '#059669' }}
+                                disabled={statusUpdateLoading}
+                              >
+                                <CheckCircle />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Reject Document">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleStatusChange(upload, 'rejected')}
+                                sx={{ color: '#dc2626' }}
+                                disabled={statusUpdateLoading}
+                              >
+                                <Cancel />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                       </Box>
                     </ListItem>
                     {index < uploaderDocs.length - 1 && <Divider />}
@@ -1103,6 +1195,92 @@ export default function UploaderDashboard() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Status Change Dialog */}
+      <Dialog
+        open={statusChangeDialogOpen}
+        onClose={handleCloseStatusDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle className="flex items-center gap-2">
+          <Edit className="text-blue-600" />
+          {newStatus === 'verified' ? 'Verify Document' : 'Reject Document'}
+        </DialogTitle>
+        <DialogContent>
+          <Box className="space-y-4 pt-4">
+            <Typography variant="body1" className="mb-4">
+              {newStatus === 'verified' 
+                ? `Are you sure you want to mark "${documentToUpdate?.title || documentToUpdate?.originalFileName}" as verified?`
+                : `Are you sure you want to reject "${documentToUpdate?.title || documentToUpdate?.originalFileName}"?`
+              }
+            </Typography>
+            
+            {newStatus === 'rejected' && (
+              <TextField
+                fullWidth
+                label="Rejection Reason"
+                multiline
+                rows={3}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please provide a reason for rejection..."
+                required
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: '#d1d5db',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: '#dc2626',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#dc2626',
+                    },
+                  },
+                }}
+              />
+            )}
+
+            {statusUpdateLoading && (
+              <Box className="flex items-center gap-2">
+                <LinearProgress sx={{ width: '100%' }} />
+                <Typography variant="body2" className="text-gray-500">
+                  Updating status...
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions className="p-4">
+          <Button
+            onClick={handleCloseStatusDialog}
+            disabled={statusUpdateLoading}
+            sx={{ color: '#6b7280' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmStatusChange}
+            variant="contained"
+            disabled={statusUpdateLoading || (newStatus === 'rejected' && !rejectionReason.trim())}
+            startIcon={newStatus === 'verified' ? <CheckCircle /> : <Cancel />}
+            sx={{
+              backgroundColor: newStatus === 'verified' ? '#059669' : '#dc2626',
+              '&:hover': {
+                backgroundColor: newStatus === 'verified' ? '#047857' : '#b91c1c',
+              },
+            }}
+          >
+            {statusUpdateLoading 
+              ? 'Updating...' 
+              : newStatus === 'verified' 
+                ? 'Verify Document' 
+                : 'Reject Document'
+            }
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Floating Action Button */}
       <Fab

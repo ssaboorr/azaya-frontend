@@ -50,6 +50,10 @@ import {
   SIGN_DOCUMENT_BY_ID_SUCCESS,
   SIGN_DOCUMENT_BY_ID_FAIL,
   SIGN_DOCUMENT_BY_ID_RESET,
+  UPDATE_DOCUMENT_STATUS_REQUEST,
+  UPDATE_DOCUMENT_STATUS_SUCCESS,
+  UPDATE_DOCUMENT_STATUS_FAIL,
+  UPDATE_DOCUMENT_STATUS_RESET,
 } from '../constants/uploadConstants';
 import { RootState } from '../store';
 
@@ -642,4 +646,55 @@ console.log("signatureData in action ==>",signatureData)
 
 export const resetSignDocumentById = (): ThunkResult<void> => (dispatch) => {
   dispatch({ type: SIGN_DOCUMENT_BY_ID_RESET });
+};
+
+// Update Document Status Action
+export const updateDocumentStatus = (
+  documentId: string,
+  status: 'pending' | 'signed' | 'verified' | 'rejected',
+  reason?: string
+): ThunkResult<Promise<void>> =>
+  async (dispatch, getState) => {
+    try {
+      dispatch({ type: UPDATE_DOCUMENT_STATUS_REQUEST });
+
+      const state = getState();
+      const token = state.userLogin.userInfo?.token;
+
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      };
+
+      const payload = {
+        status,
+        ...(reason && { reason })
+      };
+
+      const { data } = await axiosInstance.put(`/api/documents/${documentId}/status`, payload, config);
+
+      if (data.success && data.data) {
+        dispatch({
+          type: UPDATE_DOCUMENT_STATUS_SUCCESS,
+          payload: data.data,
+        });
+      } else {
+        throw new Error('Failed to update document status: Invalid response');
+      }
+    } catch (err: any) {
+      dispatch({
+        type: UPDATE_DOCUMENT_STATUS_FAIL,
+        payload: err.response?.data?.message || err.message || 'Failed to update document status',
+      });
+    }
+  };
+
+export const resetUpdateDocumentStatus = (): ThunkResult<void> => (dispatch) => {
+  dispatch({ type: UPDATE_DOCUMENT_STATUS_RESET });
 };

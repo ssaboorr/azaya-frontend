@@ -21,6 +21,7 @@ import {
   uploaderDocumentsReducer,
   signerDocumentsReducer,
   signDocumentByIdReducer,
+  updateDocumentStatusReducer,
 } from './reducers/uploadReducers';
 
 const isBrowser = typeof window !== 'undefined';
@@ -57,6 +58,7 @@ export const store = configureStore({
     uploaderDocuments: uploaderDocumentsReducer,
     signerDocuments: signerDocumentsReducer,
     signDocumentById: signDocumentByIdReducer,
+    updateDocumentStatus: updateDocumentStatusReducer,
   },
   preloadedState: initialState,
 });

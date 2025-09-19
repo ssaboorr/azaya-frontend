@@ -50,7 +50,12 @@ import {
   SIGN_DOCUMENT_BY_ID_SUCCESS,
   SIGN_DOCUMENT_BY_ID_FAIL,
   SIGN_DOCUMENT_BY_ID_RESET,
+  UPDATE_DOCUMENT_STATUS_REQUEST,
+  UPDATE_DOCUMENT_STATUS_SUCCESS,
+  UPDATE_DOCUMENT_STATUS_FAIL,
+  UPDATE_DOCUMENT_STATUS_RESET,
 } from '../constants/uploadConstants';
+import { ReactNode } from 'react';
 
 // Signature Field Interface
 export interface SignatureField {
@@ -65,6 +70,8 @@ export interface SignatureField {
 
 // Upload Interface
 export interface Upload {
+  rejectionReason: ReactNode;
+  rejectedReason: ReactNode;
   _id: string;
   title: string; // Document title
   originalFileName: string; // Original file name
@@ -462,6 +469,40 @@ export const signDocumentByIdReducer = (
     case SIGN_DOCUMENT_BY_ID_FAIL:
       return { loading: false, error: action.payload };
     case SIGN_DOCUMENT_BY_ID_RESET:
+      return {};
+    default:
+      return state;
+  }
+};
+
+// Update Document Status State Interface
+export interface UpdateDocumentStatusState {
+  loading?: boolean;
+  success?: boolean;
+  error?: string;
+  updatedDocument?: any;
+}
+
+// Initial Update Document Status State
+export const initialUpdateDocumentStatusState: UpdateDocumentStatusState = {};
+
+// Update Document Status Reducer
+export const updateDocumentStatusReducer = (
+  state: UpdateDocumentStatusState = initialUpdateDocumentStatusState,
+  action: any
+): UpdateDocumentStatusState => {
+  switch (action.type) {
+    case UPDATE_DOCUMENT_STATUS_REQUEST:
+      return { loading: true };
+    case UPDATE_DOCUMENT_STATUS_SUCCESS:
+      return {
+        loading: false,
+        success: true,
+        updatedDocument: action.payload
+      };
+    case UPDATE_DOCUMENT_STATUS_FAIL:
+      return { loading: false, error: action.payload };
+    case UPDATE_DOCUMENT_STATUS_RESET:
       return {};
     default:
       return state;

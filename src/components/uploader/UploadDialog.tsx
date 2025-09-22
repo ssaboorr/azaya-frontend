@@ -168,8 +168,8 @@ export default function UploadDialog({
         </Typography>
       </DialogTitle>
       
-      <DialogContent sx={{ p: 3 }}>
-        <Box className="space-y-6">
+      <DialogContent sx={{ p: 6 }}>
+        <Box className="space-y-8">
           {/* Drag and Drop Area */}
           <Box>
             <Typography variant="subtitle2" className="mb-3 font-semibold text-gray-700">
@@ -181,7 +181,7 @@ export default function UploadDialog({
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               sx={{
-                p: 4,
+                p: 8,
                 textAlign: 'center',
                 border: isDragOver ? '2px dashed #3b82f6' : '2px dashed #cbd5e1',
                 borderRadius: '16px',
@@ -283,6 +283,7 @@ export default function UploadDialog({
               startAdornment: <Title className="text-gray-400 mr-2" />,
             }}
             sx={{
+              py: 2,
               '& .MuiOutlinedInput-root': {
                 borderRadius: '12px',
                 '& fieldset': {
@@ -312,6 +313,7 @@ export default function UploadDialog({
               startAdornment: <Person className="text-gray-400 mr-2" />,
             }}
             sx={{
+              py:4,
               '& .MuiOutlinedInput-root': {
                 borderRadius: '12px',
                 '& fieldset': {

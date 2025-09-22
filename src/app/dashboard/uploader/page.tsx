@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Container, Typography, Box, Fab, Snackbar, Alert } from '@mui/material';
+import { Container, Typography, Box, Fab, Snackbar, Alert, Slide } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
@@ -353,22 +353,184 @@ export default function UploaderDashboard() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
+    <Box 
+      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50"
+      sx={{
+        animation: 'fadeIn 0.8s ease-out',
+        '@keyframes fadeIn': {
+          '0%': { opacity: 0 },
+          '100%': { opacity: 1 }
+        }
+      }}
+    >
       <UploaderHeader 
         userName={userInfo?.name || ''} 
         userRole={userInfo?.role || ''} 
         onLogout={handleLogout} 
       />
 
-      <Container maxWidth="lg" className="py-8">
+      <Container 
+        maxWidth="lg" 
+        className="py-8"
+        sx={{
+          animation: 'slideInUp 0.6s ease-out 0.2s both',
+          '@keyframes slideInUp': {
+            '0%': {
+              opacity: 0,
+              transform: 'translateY(30px)'
+            },
+            '100%': {
+              opacity: 1,
+              transform: 'translateY(0)'
+            }
+          }
+        }}
+      >
         {/* Welcome Section */}
-        <Box className="text-center mb-8">
-          <Typography variant="h3" className="text-gray-800 font-bold mb-4">
+        <Box 
+          className="text-center mb-12"
+          sx={{
+            animation: 'fadeInUp 0.8s ease-out',
+            '@keyframes fadeInUp': {
+              '0%': {
+                opacity: 0,
+                transform: 'translateY(30px)'
+              },
+              '100%': {
+                opacity: 1,
+                transform: 'translateY(0)'
+              }
+            }
+          }}
+        >
+          <Typography 
+            variant="h3" 
+            className="font-bold mb-4"
+            sx={{
+              background: 'linear-gradient(135deg, #1f2937 0%, #3b82f6 50%, #1d4ed8 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontSize: '2.5rem',
+              letterSpacing: '-0.025em'
+            }}
+          >
             Welcome back, {userInfo.name}!
           </Typography>
-          <Typography variant="h6" className="text-gray-600 mb-4">
+          <Typography 
+            variant="h6" 
+            className="text-gray-600 mb-6"
+            sx={{ 
+              fontSize: '1.125rem',
+              lineHeight: 1.6,
+              maxWidth: '600px',
+              margin: '0 auto'
+            }}
+          >
             Upload and manage your documents for signature
           </Typography>
+          
+          {/* Stats Cards */}
+          <Box 
+            className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 py-6 "
+            sx={{
+              animation: 'fadeInUp 0.8s ease-out 0.2s both',
+              '@keyframes fadeInUp': {
+                '0%': {
+                  opacity: 0,
+                  transform: 'translateY(30px)'
+                },
+                '100%': {
+                  opacity: 1,
+                  transform: 'translateY(0)'
+                }
+              }
+            }}
+          >
+            <Box 
+              className="p-6 rounded-2xl text-center"
+              sx={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                }
+              }}
+            >
+              <Typography variant="h4" className="font-bold text-blue-600 mb-2">
+                {uploaderDocs?.length || 0}
+              </Typography>
+              <Typography variant="body2" className="text-gray-600">
+                Total Documents
+              </Typography>
+            </Box>
+            
+            <Box 
+              className="p-6 rounded-2xl text-center"
+              sx={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                }
+              }}
+            >
+              <Typography variant="h4" className="font-bold text-green-600 mb-2">
+                {uploaderDocs?.filter(doc => doc.status === 'signed' || doc.status === 'verified').length || 0}
+              </Typography>
+              <Typography variant="body2" className="text-gray-600">
+                Verified
+              </Typography>
+            </Box>
+            
+            <Box 
+              className="p-6 rounded-2xl text-center"
+              sx={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                }
+              }}
+            >
+              <Typography variant="h4" className="font-bold text-orange-600 mb-2">
+                {uploaderDocs?.filter(doc => doc.status === 'pending').length || 0}
+              </Typography>
+              <Typography variant="body2" className="text-gray-600">
+                Pending
+              </Typography>
+            </Box>
+            <Box 
+              className="p-6 rounded-2xl text-center"
+              sx={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                }
+              }}
+            >
+              <Typography variant="h4" className="font-bold text-orange-600 mb-2">
+                {uploaderDocs?.filter(doc => doc.status === 'rejected').length || 0}
+              </Typography>
+              <Typography variant="body2" className="text-gray-600">
+                Rejected
+              </Typography>
+            </Box>
+          </Box>
+          
         </Box>
 
         {/* Upload Section */}
@@ -411,17 +573,35 @@ export default function UploaderDashboard() {
         onCopyLink={handleCopyLink}
       />
 
-      {/* Snackbar for notifications */}
+      {/* Enhanced Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        TransitionComponent={Slide}
+        TransitionProps={{ direction: 'left' } as any}
+        sx={{
+          '& .MuiSnackbarContent-root': {
+            borderRadius: '12px',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+          }
+        }}
       >
         <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ 
+            width: '100%',
+            borderRadius: '12px',
+            fontWeight: 600,
+            '& .MuiAlert-icon': {
+              fontSize: '1.25rem'
+            },
+            '& .MuiAlert-message': {
+              fontSize: '0.95rem'
+            }
+          }}
         >
           {snackbar.message}
         </Alert>
@@ -437,7 +617,7 @@ export default function UploaderDashboard() {
         loading={statusUpdateLoading || false}
       />
 
-      {/* Floating Action Button */}
+      {/* Enhanced Floating Action Button */}
       <Fab
         color="primary"
         aria-label="add"
@@ -446,14 +626,39 @@ export default function UploaderDashboard() {
           position: 'fixed',
           bottom: 24,
           right: 24,
-          backgroundColor: '#3b82f6',
-          '&:hover': {
-            backgroundColor: '#2563eb',
+          width: 64,
+          height: 64,
+          background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+          boxShadow: '0 8px 32px rgba(59, 130, 246, 0.4)',
+          transition: 'all 0.3s ease-in-out',
+          animation: 'pulse 2s infinite',
+          '@keyframes pulse': {
+            '0%': { 
+              transform: 'scale(1)',
+              boxShadow: '0 8px 32px rgba(59, 130, 246, 0.4)'
+            },
+            '50%': { 
+              transform: 'scale(1.05)',
+              boxShadow: '0 12px 40px rgba(59, 130, 246, 0.6)'
+            },
+            '100%': { 
+              transform: 'scale(1)',
+              boxShadow: '0 8px 32px rgba(59, 130, 246, 0.4)'
+            }
           },
+          '&:hover': {
+            background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+            transform: 'scale(1.1) translateY(-4px)',
+            boxShadow: '0 16px 48px rgba(59, 130, 246, 0.6)',
+            animation: 'none',
+          },
+          '&:active': {
+            transform: 'scale(0.95)',
+          }
         }}
       >
-        <Add />
+        <Add sx={{ fontSize: 28 }} />
       </Fab>
-    </div>
+    </Box>
   );
 }

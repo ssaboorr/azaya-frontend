@@ -89,7 +89,7 @@ export interface Upload {
   };
   signerEmail: string; // Email of assigned signer
   signatureFields: SignatureField[]; // Signature field positions
-  status: 'pending' | 'assigned' | 'signed' | 'completed' | 'rejected';
+  status: 'pending' | 'assigned' | 'signed' | 'completed' | 'rejected' | 'verified';
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   dueDate?: string;
   signedAt?: string;

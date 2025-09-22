@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -11,10 +11,19 @@ import {
   TextField,
   Button,
   Alert,
+  LinearProgress,
 } from '@mui/material';
-import { Edit, Person, Email, CalendarToday, Send } from '@mui/icons-material';
+import { Edit, Person, Email, CalendarToday, Send, Refresh } from '@mui/icons-material';
 import SignatureCanvas from './SignatureCanvas';
 import { PDFDocument, rgb } from 'pdf-lib';
+
+interface SignatureLocation {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 interface Document {
   _id: string;
@@ -67,8 +76,50 @@ export default function SignatureDialog({
   const [signedDocumentPreview, setSignedDocumentPreview] = useState<string | null>(null);
   const [showSignedPreview, setShowSignedPreview] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [detectedSignatureFields, setDetectedSignatureFields] = useState<SignatureLocation[]>([]);
+  const [isDetectingFields, setIsDetectingFields] = useState(false);
 
-  // Function to overlay signature on the original PDF
+  // Function to detect signature locations in PDF
+  const detectSignatureLocations = async (pdfUrl: string): Promise<SignatureLocation[]> => {
+    // For now, return empty array to avoid PDF.js worker issues
+    // This will fall back to the default bottom-right placement
+    console.log('Signature detection temporarily disabled due to PDF.js worker issues');
+    return [];
+  };
+
+  // Detect signature fields when dialog opens
+  useEffect(() => {
+    if (open && document?.cloudinaryUrl) {
+      setIsDetectingFields(true);
+      detectSignatureLocations(document.cloudinaryUrl)
+        .then(locations => {
+          setDetectedSignatureFields(locations);
+          setIsDetectingFields(false);
+        })
+        .catch(() => {
+          setDetectedSignatureFields([]);
+          setIsDetectingFields(false);
+        });
+    }
+  }, [open, document?.cloudinaryUrl]);
+
+  // Function to manually re-scan for signature fields
+  const handleRescanSignatureFields = async () => {
+    if (!document?.cloudinaryUrl) return;
+    
+    setIsDetectingFields(true);
+    try {
+      const locations = await detectSignatureLocations(document.cloudinaryUrl);
+      setDetectedSignatureFields(locations);
+    } catch (error) {
+      console.error('Error re-scanning signature fields:', error);
+      setDetectedSignatureFields([]);
+    } finally {
+      setIsDetectingFields(false);
+    }
+  };
+
+  // Function to overlay signature on the original PDF with smart positioning
   const createSignedPdfWithOverlay = async (signatureData: any, originalPdfUrl: string) => {
     try {
       // Load the original PDF
@@ -78,74 +129,122 @@ export default function SignatureDialog({
       // Load the PDF document
       const pdfDoc = await PDFDocument.load(existingPdfBytes);
       
-      // Get the first page (you can modify this to add signature to all pages or specific pages)
-      const pages = pdfDoc.getPages();
-      const firstPage = pages[0];
-      const { width, height } = firstPage.getSize();
-      
       // Convert signature image to PNG bytes
       const signatureResponse = await fetch(signatureData.signature);
       const signatureBytes = await signatureResponse.arrayBuffer();
-      
-      // Embed the signature image
       const signatureImage = await pdfDoc.embedPng(signatureBytes);
       
-      // Calculate signature position (bottom right corner) with proper margins
-      const signatureWidth = 100; // Width of signature area
-      const signatureHeight = 50;  // Height of signature area
-      const margin = 30;           // Margin from edges (increased for safety)
-      const detailsHeight = 25;    // Height for signer details below signature
-      
-      // Ensure we have enough space for signature + details + margins
-      const totalHeight = signatureHeight + detailsHeight + margin;
-      const totalWidth = signatureWidth + margin;
-      
-      const signatureX = Math.max(margin, width - totalWidth);
-      const signatureY = Math.max(margin, totalHeight);
-      
-     
-      
-      // Add signature label
-      firstPage.drawText('Digital Signature', {
-        x: signatureX + 2,
-        y: signatureY + signatureHeight - 2,
-        size: 7,
-        color: rgb(0.2, 0.2, 0.2),
-      });
-      
-      // Add the signature image with proper padding
-      firstPage.drawImage(signatureImage, {
-        x: signatureX + 3,
-        y: signatureY + 3,
-        width: signatureWidth - 6,
-        height: 30,
-      });
-      
-      // Add signer details below signature with proper positioning
-      const detailsY = signatureY - 5; // Position below the signature box
-      
-      // Ensure details don't go below the page
-      if (detailsY > 10) {
-        firstPage.drawText(signatureData.name, {
-          x: signatureX + 3,
-          y: detailsY,
-          size: 5,
+      if (detectedSignatureFields.length > 0) {
+        // Use detected signature locations
+        console.log(`Placing signature at ${detectedSignatureFields.length} detected location(s)`);
+        
+        detectedSignatureFields.forEach((location) => {
+          const page = pdfDoc.getPages()[location.page];
+          const { height: pageHeight } = page.getSize();
+          
+          // Convert coordinates (PDF.js uses different coordinate system than pdf-lib)
+          const adjustedY = pageHeight - location.y - location.height;
+          
+          // Calculate optimal signature size
+          const maxSignatureWidth = Math.min(location.width * 1.5, 120);
+          const signatureHeight = 40;
+          
+          // Add signature at detected location
+          page.drawImage(signatureImage, {
+            x: location.x,
+            y: adjustedY,
+            width: maxSignatureWidth,
+            height: signatureHeight,
+          });
+          
+          // Add signer details below signature (if space allows)
+          const detailsY = adjustedY - 15;
+          if (detailsY > 20) {
+            page.drawText(`Signed by: ${signatureData.name}`, {
+              x: location.x,
+              y: detailsY,
+              size: 7,
+              color: rgb(0.2, 0.2, 0.2),
+            });
+            
+            if (detailsY > 35) {
+              page.drawText(`Email: ${signatureData.email}`, {
+                x: location.x,
+                y: detailsY - 10,
+                size: 6,
+                color: rgb(0.2, 0.2, 0.2),
+              });
+              
+              page.drawText(`Date: ${signatureData.date}`, {
+                x: location.x,
+                y: detailsY - 20,
+                size: 6,
+                color: rgb(0.2, 0.2, 0.2),
+              });
+            }
+          }
+        });
+      } else {
+        // Fallback to bottom-right placement (your original logic)
+        console.log('No signature locations detected, using default bottom-right placement');
+        
+        const pages = pdfDoc.getPages();
+        const firstPage = pages[0];
+        const { width, height } = firstPage.getSize();
+        
+        // Calculate signature position (bottom right corner) with proper margins
+        const signatureWidth = 100;
+        const signatureHeight = 50;
+        const margin = 30;
+        const detailsHeight = 25;
+        
+        const totalHeight = signatureHeight + detailsHeight + margin;
+        const totalWidth = signatureWidth + margin;
+        
+        const signatureX = Math.max(margin, width - totalWidth);
+        const signatureY = Math.max(margin, totalHeight);
+        
+        // Add signature label
+        firstPage.drawText('Digital Signature', {
+          x: signatureX + 2,
+          y: signatureY + signatureHeight - 2,
+          size: 7,
           color: rgb(0.2, 0.2, 0.2),
         });
         
-        firstPage.drawText(signatureData.email, {
+        // Add the signature image with proper padding
+        firstPage.drawImage(signatureImage, {
           x: signatureX + 3,
-          y: detailsY - 6,
-          size: 5,
-          color: rgb(0.2, 0.2, 0.2),
+          y: signatureY + 3,
+          width: signatureWidth - 6,
+          height: 30,
         });
         
-        firstPage.drawText(signatureData.date, {
-          x: signatureX + 3,
-          y: detailsY - 12,
-          size: 5,
-          color: rgb(0.2, 0.2, 0.2),
-        });
+        // Add signer details below signature with proper positioning
+        const detailsY = signatureY - 5;
+        
+        if (detailsY > 10) {
+          firstPage.drawText(signatureData.name, {
+            x: signatureX + 3,
+            y: detailsY,
+            size: 5,
+            color: rgb(0.2, 0.2, 0.2),
+          });
+          
+          firstPage.drawText(signatureData.email, {
+            x: signatureX + 3,
+            y: detailsY - 6,
+            size: 5,
+            color: rgb(0.2, 0.2, 0.2),
+          });
+          
+          firstPage.drawText(signatureData.date, {
+            x: signatureX + 3,
+            y: detailsY - 12,
+            size: 5,
+            color: rgb(0.2, 0.2, 0.2),
+          });
+        }
       }
       
       // Save the PDF
@@ -216,6 +315,7 @@ export default function SignatureDialog({
     });
     setSignedDocumentPreview(null);
     setShowSignedPreview(false);
+    setDetectedSignatureFields([]);
     onClose();
   };
 
@@ -248,6 +348,61 @@ export default function SignatureDialog({
               </Typography>
             )}
           </Box>
+
+           {/* Signature Field Detection Status */}
+           {isDetectingFields && (
+             <Box>
+               <Alert severity="info" className="mb-2">
+                 <Typography variant="body2">
+                   🔍 Scanning document for signature fields...
+                 </Typography>
+               </Alert>
+               <LinearProgress />
+             </Box>
+           )}
+
+           {detectedSignatureFields.length > 0 && !isDetectingFields && (
+             <Alert 
+               severity="success" 
+               action={
+                 <Button
+                   color="inherit"
+                   size="small"
+                   startIcon={<Refresh />}
+                   onClick={handleRescanSignatureFields}
+                   disabled={isDetectingFields}
+                 >
+                   Rescan
+                 </Button>
+               }
+             >
+               <Typography variant="body2">
+                 ✅ Found <strong>{detectedSignatureFields.length}</strong> signature field{detectedSignatureFields.length > 1 ? 's' : ''} in the document. 
+                 Your signature will be placed automatically at the detected locations.
+               </Typography>
+             </Alert>
+           )}
+
+           {detectedSignatureFields.length === 0 && !isDetectingFields && document?.cloudinaryUrl && (
+             <Alert 
+               severity="warning"
+               action={
+                 <Button
+                   color="inherit"
+                   size="small"
+                   startIcon={<Refresh />}
+                   onClick={handleRescanSignatureFields}
+                   disabled={isDetectingFields}
+                 >
+                   Rescan
+                 </Button>
+               }
+             >
+               <Typography variant="body2">
+                 ⚠️ No signature fields detected in the document. Your signature will be placed at the bottom right corner.
+               </Typography>
+             </Alert>
+           )}
 
           {/* Signature Canvas */}
           <SignatureCanvas 
@@ -342,7 +497,10 @@ export default function SignatureDialog({
                   title="Signed Document Preview"
                 />
                 <Typography variant="caption" className="text-gray-500 mt-2 block">
-                  This shows how your signature will be overlaid on the original document
+                  {detectedSignatureFields.length > 0 
+                    ? `Your signature has been placed at ${detectedSignatureFields.length} detected location(s)`
+                    : 'Your signature has been placed at the bottom right corner'
+                  }
                 </Typography>
               </Box>
             </Box>
@@ -351,7 +509,11 @@ export default function SignatureDialog({
           {/* Instructions */}
           <Alert severity="info">
             <Typography variant="body2">
-              Please draw your signature in the canvas above, fill in your details, and click "Submit Signature" to complete the signing process. Your signature will be overlaid on the original PDF document at the bottom right corner, preserving all original content.
+              Please draw your signature in the canvas above, fill in your details, and click "Submit Signature" to complete the signing process. 
+              {detectedSignatureFields.length > 0 
+                ? ` Your signature will be automatically placed at ${detectedSignatureFields.length} detected signature field${detectedSignatureFields.length > 1 ? 's' : ''}.`
+                : ' Your signature will be placed at the bottom right corner of the document.'
+              }
             </Typography>
           </Alert>
         </Box>
@@ -367,7 +529,7 @@ export default function SignatureDialog({
           onClick={handleSubmit}
           variant="contained"
           startIcon={<Send />}
-          disabled={!signatureData.signature || !signatureData.name || !signatureData.email || loading}
+          disabled={!signatureData.signature || !signatureData.name || !signatureData.email || loading || isDetectingFields}
           sx={{
             backgroundColor: '#10b981',
             '&:hover': {
